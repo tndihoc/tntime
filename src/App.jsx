@@ -99,6 +99,34 @@ const key = (day, min) => `${day}-${min}`;
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* ---------------------------------------------------------------------- */
+/*  Local persistence — saves quietly to this browser, no login needed    */
+/* ---------------------------------------------------------------------- */
+
+const STORAGE_KEYS = {
+  tasks: "tntime.tasks",
+  busyBlocks: "tntime.busyBlocks",
+};
+
+function loadFromStorage(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function saveToStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    /* storage full or unavailable — fail silently, app still works in-session */
+  }
+}
+
+/* ---------------------------------------------------------------------- */
 /*  Fun feedback: a cheerful little chime for successful scheduling       */
 /* ---------------------------------------------------------------------- */
 
@@ -1061,14 +1089,24 @@ const TABS = [
 
 export default function App() {
   const [view, setView] = useState("dashboard");
-  const [tasks, setTasks] = useState([]);
-  const [busyBlocks, setBusyBlocks] = useState([]);
+  const [tasks, setTasks] = useState(() => loadFromStorage(STORAGE_KEYS.tasks, []));
+  const [busyBlocks, setBusyBlocks] = useState(() => loadFromStorage(STORAGE_KEYS.busyBlocks, []));
   const [toast, setToast] = useState(null);
   const [celebrateIds, setCelebrateIds] = useState({});
 
   const notify = useCallback((message, type = "success") => {
     setToast({ message, type, id: uid() });
   }, []);
+
+  // Tự động lưu vào trình duyệt mỗi khi danh sách việc thay đổi
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.tasks, tasks);
+  }, [tasks]);
+
+  // Tự động lưu vào trình duyệt mỗi khi lịch bận thay đổi
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.busyBlocks, busyBlocks);
+  }, [busyBlocks]);
 
   const celebrate = useCallback((ids) => {
     if (!ids || !ids.length) return;
